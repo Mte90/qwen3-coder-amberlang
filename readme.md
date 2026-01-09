@@ -1,6 +1,6 @@
 # Guide to Fine-Tuning Qwen3-Coder for the Amber Programming Language
 
-This guide will help you fine-tune the **Qwen3-Coder** model (a Qwen-based language model optimized for code generation) to support the **Amber programming language**.
+This guide will help you fine-tune the **Qwen3-Coder** model (a Qwen-based language model optimized for code generation) to support the [Amber programming language](https://amber-lang.com/).
 
 The goal is to train the model with hundreds of Amber scripting examples, enabling it to:
 

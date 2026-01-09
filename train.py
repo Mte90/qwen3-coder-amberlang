@@ -3,15 +3,14 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
 from peft import LoraConfig, get_peft_model
 from datasets import load_from_disk
-from transformers import BitsAndBytesConfig
 
 # import resource
 # resource.setrlimit(resource.RLIMIT_AS, (4 * 1024 * 1024 * 1024, 10 * 1024 * 1024 * 1024))
 
 import torch
 torch.cuda.set_per_process_memory_fraction(0.7)
-quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-model = AutoModelForCausalLM.from_pretrained("./qwen3-coder-base", quantization_config=quantization_config, trust_remote_code=True)
+
+model = AutoModelForCausalLM.from_pretrained("./qwen3-coder-base", trust_remote_code=True)
 tokenizer = AutoTokenizer.from_pretrained("./qwen3-coder-base", trust_remote_code=True)
 lora_config = LoraConfig(
     r=16,

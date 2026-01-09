@@ -2,8 +2,11 @@
 
 import json
 import os
+import io
+import zipfile
 import sys
 import subprocess
+import requests
 from pathlib import Path
 from datasets import load_dataset
 from transformers import AutoTokenizer
@@ -16,6 +19,7 @@ folder_path = Path(sys.argv[1])
 output_file = "amber_dataset.jsonl"
 
 if not os.path.exists(output_file):
+    print("Parsing Amber scripts")
     with open(output_file, "w") as f:
         for arg in sys.argv[1:]:
             folder_path = Path(arg)
@@ -44,6 +48,26 @@ if not os.path.exists(output_file):
                         print("Amber script not compiled: " + ab_file)
                 except subprocess.CalledProcessError as e:
                     print(f"Error compiling {ab_file}: {e}")
+
+    print("Parsing Amber documentation")
+    docs_url = "https://github.com/amber-lang/amber-docs/archive/refs/heads/main.zip"
+    response = requests.get(docs_url)
+    docs_content = ""
+    with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+        md_files = [f for f in z.namelist() if f.startswith("amber-docs-main/docs/nightly-alpha/") and f.endswith(".md")]
+        for file in sorted(md_files):
+            with z.open(file) as f:
+                content = f.read().decode('utf-8')
+                docs_content += content + "\n\n"
+
+    if docs_content:
+        print("Added Amber documentation")
+        docs_example = {
+            "input": "Here is the Amber programming language documentation:",
+            "output": docs_content.strip()
+        }
+        with open(output_file, "a") as f:
+            f.write(json.dumps(docs_example) + "\n")
 
 dataset = load_dataset("json", data_files=output_file)
 tokenizer = AutoTokenizer.from_pretrained("./qwen3-coder-base", trust_remote_code=True)

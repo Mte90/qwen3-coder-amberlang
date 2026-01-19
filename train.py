@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer, BitsAndBytesConfig
 from peft import LoraConfig, get_peft_model
 from datasets import load_from_disk
 
@@ -98,7 +98,13 @@ model_kwargs = dict(trust_remote_code=True)
 
 if use_4bit and _HAS_BNB:
     print("Loading model in 4-bit mode")
-    model_kwargs.update({"load_in_4bit": True, "bnb_4bit_compute_dtype": torch.float16, "device_map": "auto"})
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
+        bnb_4bit_use_double_quant=False
+    )
+    model_kwargs.update({"quantization_config": bnb_config, "device_map": "auto"})
 elif use_4bit and not _HAS_BNB:
     print("bitsandbytes not installed: cannot load in 4-bit")
     if ram_gb >= 24:

@@ -3,7 +3,7 @@ os.environ["HF_HOME"] = "./hf_cache"
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-model_name = "Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8"
+model_name = "Qwen/Qwen2.5-Coder-7B-Instruct"
 
 model = AutoModelForCausalLM.from_pretrained(
     model_name,

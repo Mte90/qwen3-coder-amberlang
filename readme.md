@@ -62,3 +62,38 @@ Run:
 ```
 python test.py
 ```
+
+---
+
+## Fine‑tune the 8 B model with LoRA
+
+The 8 B model follows a similar workflow but uses a dedicated training script optimized for its size.
+
+1. **Update download script** for 8 B:
+   - Edit `download-qwen-coder.py` to use `"Qwen/Qwen3-Coder-8B"` model name.
+
+2. **Download the model**:
+
+   ```
+   python download-qwen-coder.py
+   ```
+
+   The model downloads to `./qwen3-coder-base-8b`.
+
+3. **Prepare the dataset**:
+
+   ```
+   python prepare_dataset.py <paths>
+   ```
+
+4. **Train with LoRA**:
+
+   ```
+   python train_lora_8b.py --epochs 3 --batch-size 1 --lr 5e-5
+   ```
+
+5. **Test**:
+
+   ```
+   python test.py
+   ```

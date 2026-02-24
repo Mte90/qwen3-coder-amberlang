@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""LoRA training script for 8b models - skeleton with arg parsing."""
+"""LoRA training script for 8b models."""
 
 import argparse
 import os
@@ -103,6 +103,10 @@ class ValidationCallback:
 
 
 def main():
+    print("=" * 60)
+    print("LoRA Training Script for Qwen 8B Model")
+    print("=" * 60)
+
     parser = argparse.ArgumentParser(
         description="Train LoRA adapters for 8b language models"
     )
@@ -133,6 +137,11 @@ def main():
 
     args = parser.parse_args()
 
+    print(f"\n[1/6] Configuration loaded:")
+    print(f"    - Epochs: {args.epochs}")
+    print(f"    - Batch size: {args.batch_size}")
+    print(f"    - Learning rate: {args.lr}")
+
     device_index = 0
     gpu_total = get_gpu_total_bytes(device_index)
     ram_total = get_system_ram_bytes()
@@ -140,34 +149,44 @@ def main():
     gpu_gb = human_gb(gpu_total)
     ram_gb = human_gb(ram_total)
 
+    print(f"\n[2/6] Hardware detection:")
+    print(f"    - GPU: {gpu_gb:.1f} GB VRAM")
+    print(f"    - RAM: {ram_gb:.1f} GB")
+
     use_offload = False
     use_4bit = False
 
     if not torch.cuda.is_available():
         use_offload = True
+        print("    - Using CPU offload mode (no GPU available)")
     else:
         if gpu_gb < 20:
             if ram_gb >= 24:
                 use_offload = True
+                print("    - Using CPU offload mode (limited VRAM)")
             else:
                 use_4bit = True
+                print("    - Using 4-bit quantization (very limited VRAM)")
+        else:
+            print("    - Full precision mode (sufficient VRAM)")
 
-    model_kwargs = dict(trust_remote_code=True)
-
+    model_kwargs = dict()
     if use_4bit and _HAS_BNB:
+        print("\n[3/6] Setting up 4-bit quantization...")
         bnb_config = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.float16,
             bnb_4bit_use_double_quant=False
         )
-        model_kwargs.update({"quantization_config": bnb_config, "device_map": "auto"})
+        model_kwargs.update({"quantization_config": bnb_config, "device_map": "auto", "trust_remote_code": True})
     elif use_4bit and not _HAS_BNB:
         if ram_gb >= 24:
             use_offload = True
 
     offload_folder = "./offload_8b"
     if use_offload:
+        print(f"\n[3/6] Preparing offload folder: {offload_folder}")
         if os.path.exists(offload_folder):
             shutil.rmtree(offload_folder)
         os.makedirs(offload_folder, exist_ok=True)
@@ -177,24 +196,27 @@ def main():
         gpu_allowed_gb = max(0, int(gpu_gb - gpu_reserved_gb))
         ram_allowed_gb = max(1, int(ram_gb * 0.9))
         max_memory = {f"cuda:{device_index}": f"{gpu_allowed_gb}GB", "cpu": f"{ram_allowed_gb}GB"}
-        model_kwargs.update({"device_map": "auto", "max_memory": max_memory, "offload_folder": offload_folder})
+        model_kwargs.update({"device_map": "auto", "max_memory": max_memory, "offload_folder": offload_folder, "trust_remote_code": True})
     else:
         if torch.cuda.is_available():
-            model_kwargs.update({"device_map": "auto"})
+            model_kwargs.update({"device_map": "auto", "trust_remote_code": True})
         else:
-            model_kwargs.update({"device_map": "cpu"})
+            model_kwargs.update({"device_map": "cpu", "trust_remote_code": True})
 
     if args.resume_from:
         if not os.path.exists(args.resume_from):
             exit(1)
-        print(f"Resuming from {args.resume_from}")
+        print(f"\n[4/6] Resuming from checkpoint: {args.resume_from}")
         model = AutoModelForCausalLM.from_pretrained(args.resume_from, **model_kwargs)
         tokenizer = AutoTokenizer.from_pretrained(args.resume_from, trust_remote_code=True)
     else:
+        print("\n[4/6] Loading base model from ./qwen3-coder-base...")
         base_model_path = "./qwen3-coder-base"
-        model = AutoModelForCausalLM.from_pretrained(base_model_path, trust_remote_code=True, **model_kwargs)
+        model = AutoModelForCausalLM.from_pretrained(base_model_path, **model_kwargs)
         tokenizer = AutoTokenizer.from_pretrained(base_model_path, trust_remote_code=True)
+        print("    - Model loaded successfully")
 
+    print("\n[5/6] Applying LoRA configuration...")
     lora_config = LoraConfig(
         r=8,
         lora_alpha=32,
@@ -204,9 +226,14 @@ def main():
         task_type="CAUSAL_LM"
     )
     model = get_peft_model(model, lora_config)
+    print("    - LoRA adapter applied")
+    model.print_trainable_parameters()
 
+    print("\n[6/6] Loading dataset from ./tokenized_amber_dataset...")
     dataset = load_from_disk("./tokenized_amber_dataset")
+    print(f"    - Dataset loaded: {len(dataset)} samples")
 
+    print("\nSetting up training arguments...")
     training_args = TrainingArguments(
         output_dir="./qwen3-coder-amber-8b",
         per_device_train_batch_size=args.batch_size,
@@ -215,7 +242,7 @@ def main():
         learning_rate=args.lr,
         save_steps=500,
         logging_steps=100,
-        fp16=True,
+        fp16=use_4bit,
         dataloader_pin_memory=False,
         gradient_checkpointing=True,
     )
@@ -227,12 +254,17 @@ def main():
         callbacks=[ValidationCallback(model, tokenizer)],
     )
 
+    print("\n" + "=" * 60)
+    print("Starting training...")
+    print("=" * 60)
+
     trainer.train()
 
+    print("\nSaving LoRA checkpoint...")
     model.save_pretrained("./qwen3-coder-amber-8b")
     tokenizer.save_pretrained("./qwen3-coder-amber-8b")
-
     print("Training complete. LoRA checkpoint saved to ./qwen3-coder-amber-8b")
+    print("=" * 60)
 
 
 if __name__ == "__main__":

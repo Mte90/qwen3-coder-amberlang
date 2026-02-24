@@ -170,7 +170,8 @@ def main():
         else:
             print("    - Full precision mode (sufficient VRAM)")
 
-    model_kwargs = dict()
+    model_kwargs = dict(trust_remote_code=True)
+
     if use_4bit and _HAS_BNB:
         print("\n[3/6] Setting up 4-bit quantization...")
         bnb_config = BitsAndBytesConfig(
@@ -179,29 +180,32 @@ def main():
             bnb_4bit_compute_dtype=torch.float16,
             bnb_4bit_use_double_quant=False
         )
-        model_kwargs.update({"quantization_config": bnb_config, "device_map": "auto", "trust_remote_code": True})
+        model_kwargs.update({"quantization_config": bnb_config, "device_map": "auto"})
     elif use_4bit and not _HAS_BNB:
         if ram_gb >= 24:
             use_offload = True
 
-    offload_folder = "./offload_8b"
     if use_offload:
-        print(f"\n[3/6] Preparing offload folder: {offload_folder}")
+        print(f"\n[3/6] Setting up CPU offload...")
+        offload_folder = "./offload_8b"
         if os.path.exists(offload_folder):
             shutil.rmtree(offload_folder)
         os.makedirs(offload_folder, exist_ok=True)
 
-    if use_offload:
         gpu_reserved_gb = max(1, int(gpu_gb * 0.2))
         gpu_allowed_gb = max(0, int(gpu_gb - gpu_reserved_gb))
         ram_allowed_gb = max(1, int(ram_gb * 0.9))
-        max_memory = {f"cuda:{device_index}": f"{gpu_allowed_gb}GB", "cpu": f"{ram_allowed_gb}GB"}
-        model_kwargs.update({"device_map": "auto", "max_memory": max_memory, "offload_folder": offload_folder, "trust_remote_code": True})
-    else:
+        max_memory = {device_index: f"{gpu_allowed_gb}GB", "cpu": f"{ram_allowed_gb}GB"}
+        model_kwargs.update({
+            "device_map": "auto",
+            "max_memory": max_memory,
+            "offload_folder": offload_folder,
+        })
+    elif not use_4bit:
         if torch.cuda.is_available():
-            model_kwargs.update({"device_map": "auto", "trust_remote_code": True})
+            model_kwargs.update({"device_map": "auto"})
         else:
-            model_kwargs.update({"device_map": "cpu", "trust_remote_code": True})
+            model_kwargs.update({"device_map": "cpu"})
 
     if args.resume_from:
         if not os.path.exists(args.resume_from):

@@ -65,7 +65,7 @@ Run:
 
 ```
 source ./amber-finetune-env/bin/activate
-./prepare_dataset.py /Amber/src/tests/stdlib/ /Amber/src/tests/translating/
+./prepare_dataset.py /Amber/src/tests/stdlib/ /Amber/src/tests/translating/ /Amber/src/tests/validity/
 ```
 
 ## Fine-Tuning Options

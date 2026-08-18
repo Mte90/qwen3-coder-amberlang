@@ -3,7 +3,7 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 base_model = AutoModelForCausalLM.from_pretrained("./qwen3-coder-base", trust_remote_code=True)
-model = PeftModel.from_pretrained(base_model, "./qwen3-coder-amber")
+model = PeftModel.from_pretrained(base_model, "./qwen3-coder-amber-8b")
 tokenizer = AutoTokenizer.from_pretrained("./qwen3-coder-base", trust_remote_code=True)
 def generate_code(prompt):
     inputs = tokenizer(prompt, return_tensors="pt")

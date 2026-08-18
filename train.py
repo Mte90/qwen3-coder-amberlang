@@ -141,6 +141,7 @@ lora_config = LoraConfig(
     bias="none",
     task_type="CAUSAL_LM"
 )
+model.enable_input_require_grads()
 model = get_peft_model(model, lora_config)
 
 dataset = load_from_disk("./tokenized_amber_dataset")

@@ -73,20 +73,34 @@ dataset = load_dataset("json", data_files=output_file)
 tokenizer = AutoTokenizer.from_pretrained("./qwen3-coder-base", trust_remote_code=True)
 
 def tokenize_function(examples):
-    inputs = tokenizer(
-        examples["input"],
-        truncation=True,
-        padding="max_length",
-        max_length=512
-    )
-    outputs = tokenizer(
-        examples["output"],
-        truncation=True,
-        padding="max_length",
-        max_length=512
-    )
-    inputs["labels"] = outputs["input_ids"]
-    return inputs
+    MAX_LEN = 768
+
+    input_ids_list = []
+    attention_mask_list = []
+    labels_list = []
+
+    for prompt_text, completion_text in zip(examples["input"], examples["output"]):
+        prompt_ids = tokenizer(prompt_text, truncation=True, max_length=MAX_LEN, add_special_tokens=True)["input_ids"]
+        completion_ids = tokenizer(completion_text, truncation=True, max_length=MAX_LEN, add_special_tokens=False)["input_ids"]
+        completion_ids = completion_ids + [tokenizer.eos_token_id]
+
+        input_ids = (prompt_ids + completion_ids)[:MAX_LEN]
+        labels = ([-100] * len(prompt_ids) + completion_ids)[:MAX_LEN]
+
+        pad_len = MAX_LEN - len(input_ids)
+        attention_mask = [1] * len(input_ids) + [0] * pad_len
+        input_ids = input_ids + [tokenizer.pad_token_id] * pad_len
+        labels = labels + [-100] * pad_len
+
+        input_ids_list.append(input_ids)
+        attention_mask_list.append(attention_mask)
+        labels_list.append(labels)
+
+    return {
+        "input_ids": input_ids_list,
+        "attention_mask": attention_mask_list,
+        "labels": labels_list,
+    }
 
 tokenized_dataset = dataset.map(tokenize_function, batched=True)
 tokenized_dataset.save_to_disk("./tokenized_amber_dataset")

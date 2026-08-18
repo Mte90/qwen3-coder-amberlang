@@ -23,7 +23,7 @@ try:
 except Exception:
     pass
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer, BitsAndBytesConfig
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer, BitsAndBytesConfig, TrainerCallback
 from peft import LoraConfig, get_peft_model
 from datasets import load_from_disk
 
@@ -86,7 +86,7 @@ def generate_validation(model, tokenizer):
     return generated_text
 
 
-class ValidationCallback:
+class ValidationCallback(TrainerCallback):
     def __init__(self, model, tokenizer):
         self.model = model
         self.tokenizer = tokenizer
@@ -229,13 +229,14 @@ def main():
         bias="none",
         task_type="CAUSAL_LM"
     )
+    model.enable_input_require_grads()
     model = get_peft_model(model, lora_config)
     print("    - LoRA adapter applied")
     model.print_trainable_parameters()
 
     print("\n[6/6] Loading dataset from ./tokenized_amber_dataset...")
     dataset = load_from_disk("./tokenized_amber_dataset")
-    print(f"    - Dataset loaded: {len(dataset)} samples")
+    print(f"    - Dataset loaded: {len(dataset['train'])} samples")
 
     print("\nSetting up training arguments...")
     training_args = TrainingArguments(

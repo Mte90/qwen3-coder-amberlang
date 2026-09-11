@@ -61,12 +61,24 @@ huggingface-cli login
 
 ## Step 5: Prepare the Dataset
 
-Run:
+Run `prepare_dataset.py`.
+
+Sources: Amber stdlib/scripts/setup + all usable test folders + the [awesome-amberlang](https://github.com/amber-lang/awesome-amberlang) projects (auto-cloned into `awesome_projects/`) + amber-docs (one example per docs section). Every Amber file is validated with `amber build` before entering the dataset; pairs longer than `--max-len` (default 2048 tokens) are dropped or split into per-function examples instead of being truncated mid-code.
 
 ```
 source ./amber-finetune-env/bin/activate
-./prepare_dataset.py /Amber/src/tests/stdlib/ /Amber/src/tests/translating/ /Amber/src/tests/validity/
+python prepare_dataset.py                          # full run (local repo + awesome + docs + tokenize)
+python prepare_dataset.py --no-awesome            # local Amber checkout only
+python prepare_dataset.py --limit 20 --no-awesome --no-docs --no-tokenize   # quick smoke test
 ```
+
+Outputs: `amber_dataset.jsonl` (rows: `input`, `output`, `source`) and `tokenized_amber_dataset/`.
+
+Task types generated:
+
+- Bash→Amber conversion (compiled pairs, varied prompt phrasings)
+- NL→Amber: stdlib module source, and per-function examples extracted from oversized files (prompt built from the `///` doc comment)
+- Documentation grounding: one example per docs section
 
 ## Fine-Tuning Options
 

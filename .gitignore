@@ -6,3 +6,5 @@ tokenized_amber_dataset
 offload
 __pycache__
 qwen3-coder-base
+awesome_projects
+hf_cache
